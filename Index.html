@@ -1,0 +1,716 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Particle Morph</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  /* Layout: full-bleed GPU particle stage, one input dock on the bottom edge, quiet wordmark top-left. Single dark look by choice. */
+  :root {
+    --bg: #06050c;
+    --panel: #0f0d1c;
+    --line: rgba(168, 156, 255, 0.2);
+    --fg: #ece9ff;
+    --muted: #8f8aae;
+    --accent: #5b4bff;
+    --accent-hi: #7a6cff;
+    --accent-fg: #ffffff;
+    --font: Poppins, Vazirmatn, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font);
+    overflow: hidden;
+  }
+
+  .stage {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: var(--bg);
+    touch-action: none;
+  }
+  .stage canvas { display: block; }
+
+  .glow {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    background:
+      radial-gradient(60% 50% at 50% 40%, rgba(91, 75, 255, 0.16), transparent 70%),
+      radial-gradient(40% 30% at 50% 100%, rgba(91, 75, 255, 0.12), transparent 70%);
+  }
+
+  .brand {
+    position: fixed;
+    z-index: 2;
+    top: calc(env(safe-area-inset-top, 0px) + 16px);
+    left: max(16px, env(safe-area-inset-left, 0px));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .brand i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-hi);
+    box-shadow: 0 0 12px var(--accent);
+  }
+
+  .dock {
+    position: fixed;
+    z-index: 2;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  .chip {
+    font: inherit;
+    font-size: 13px;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .chip:hover { color: var(--fg); border-color: var(--accent-hi); }
+  .chip:focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 2px; }
+
+  .bar {
+    width: min(100%, 640px);
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    direction: ltr;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .bar:focus-within {
+    border-color: var(--accent-hi);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 0 3px rgba(91, 75, 255, 0.25);
+  }
+  .bar.nudge { animation: nudge 0.35s; }
+  @keyframes nudge {
+    20% { transform: translateX(-6px); }
+    60% { transform: translateX(6px); }
+  }
+
+  .bar input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 44px;
+    padding: 0 12px;
+    font: inherit;
+    font-size: 16px;
+    color: var(--fg);
+    background: transparent;
+    border: 0;
+    outline: none;
+  }
+  .bar input::placeholder { color: var(--muted); opacity: 1; }
+
+  .bar button {
+    flex: 0 0 auto;
+    height: 44px;
+    padding: 0 24px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent-fg);
+    background: var(--accent);
+    border: 0;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .bar button:hover { background: var(--accent-hi); }
+  .bar button:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
+
+  .status {
+    max-width: 640px;
+    min-height: 1.4em;
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .fallback {
+    position: fixed;
+    z-index: 3;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    text-align: center;
+    background: var(--bg);
+    color: var(--fg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bar.nudge { animation: none; }
+    .chip, .bar, .bar button { transition: none; }
+  }
+</style>
+
+<div class="stage" id="stage"></div>
+<div class="glow"></div>
+
+<div class="brand"><i></i>Particle Morph</div>
+
+<section class="dock" id="dock">
+  <div class="chips" aria-label="نمونه‌ها">
+    <button type="button" class="chip" data-word="Hello">Hello</button>
+    <button type="button" class="chip" data-word="2026">2026</button>
+    <button type="button" class="chip" data-word="سلام">سلام</button>
+    <button type="button" class="chip" data-word="♥">♥</button>
+    <button type="button" class="chip" id="sphereBtn">کره</button>
+  </div>
+  <form class="bar" id="bar" autocomplete="off">
+    <input id="word" type="text" maxlength="24" dir="auto" placeholder="یه اسم، عدد یا کلمه بنویس" aria-label="متنی که ذره‌ها بسازن">
+    <button type="submit" id="go">بساز</button>
+  </form>
+  <p class="status" id="status" dir="auto" aria-live="polite">یه اسم، عدد یا کلمه بنویس. موس یا انگشتت رو روی ذره‌ها بکش تا کنار برن.</p>
+</section>
+
+<p class="fallback" id="fallback" hidden></p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script type="x-shader/x-vertex" id="vs">
+  attribute vec3 aText;
+  attribute vec4 aRand;
+  attribute vec3 aColor;
+
+  uniform float uMix;
+  uniform float uTime;
+  uniform float uSize;
+  uniform float uTextSize;
+  uniform float uViewH;
+  uniform float uSpread;
+  uniform float uSwirl;
+  uniform float uCamZ;
+  uniform float uTextHalfW;
+  uniform float uOpacity;
+  uniform float uPointerPow;
+  uniform float uPointerR;
+  uniform vec3 uRayO;
+  uniform vec3 uRayD;
+  uniform vec3 uC1;
+  uniform vec3 uC2;
+
+  varying vec3 vColor;
+  varying float vAlpha;
+
+  float easeIO(float t) {
+    return t < 0.5 ? 4.0 * t * t * t : 1.0 - pow(-2.0 * t + 2.0, 3.0) / 2.0;
+  }
+  mat2 rot(float a) {
+    float c = cos(a);
+    float s = sin(a);
+    return mat2(c, -s, s, c);
+  }
+
+  void main() {
+    // per-particle progress: each one starts a little later than the last, so the morph flows
+    float t = clamp(uMix * (1.0 + uSpread) - aRand.x * uSpread, 0.0, 1.0);
+    float e = easeIO(t);
+    float w = sin(e * 3.14159265);
+
+    // sphere: slow breathing plus a rippling surface
+    vec3 sp = position;
+    float wob = sin(uTime * 1.1 + position.y * 3.0 + position.x * 2.0) * 0.045;
+    sp += normalize(position + vec3(0.0001)) * wob;
+    sp *= 1.0 + 0.025 * sin(uTime * 0.9 + aRand.y * 6.2831);
+
+    // text: tiny shimmer so the letters feel alive
+    vec3 tp = aText + vec3(
+      sin(uTime * 1.3 + aRand.z * 20.0),
+      cos(uTime * 1.1 + aRand.y * 20.0),
+      sin(uTime * 0.9 + aRand.w * 20.0)
+    ) * 0.012;
+
+    vec3 p = mix(sp, tp, e);
+
+    // in flight: spiral around the vertical axis and scatter sideways
+    p.xz = rot(w * (aRand.w - 0.3) * 2.2 * uSwirl) * p.xz;
+    p += (aRand.yzw - 0.5) * 2.0 * w * 1.3 * uSwirl;
+
+    // pointer: push particles away from the ray that goes through the cursor
+    vec4 wp = modelMatrix * vec4(p, 1.0);
+    vec3 rel = wp.xyz - uRayO;
+    vec3 away = wp.xyz - (uRayO + uRayD * dot(rel, uRayD));
+    float d = length(away);
+    float f = smoothstep(uPointerR, 0.0, d) * uPointerPow;
+    wp.xyz += normalize(away + vec3(0.00001)) * f * 0.9;
+
+    vec4 mv = viewMatrix * wp;
+    gl_Position = projectionMatrix * mv;
+
+    float sz = uSize * (0.55 + aRand.y * 0.9) * mix(1.0, uTextSize, e);
+    gl_PointSize = max(sz * uViewH / -mv.z, 1.2);
+
+    float gx = clamp(aText.x / uTextHalfW * 0.5 + 0.5, 0.0, 1.0);
+    vec3 tc = mix(uC1, uC2, gx);
+    vColor = mix(aColor, tc, e) + vec3(0.25) * f;
+
+    // far side of the sphere is dimmer; text is fully lit
+    float depth = clamp(1.0 - (-mv.z - (uCamZ - 2.2)) / 4.4, 0.0, 1.0);
+    vAlpha = mix(0.16 + 0.84 * depth, 1.0, e) * uOpacity;
+  }
+</script>
+<script type="x-shader/x-fragment" id="fs">
+  varying vec3 vColor;
+  varying float vAlpha;
+
+  void main() {
+    float d = length(gl_PointCoord - vec2(0.5));
+    if (d > 0.5) discard;
+    float a = smoothstep(0.5, 0.05, d);
+    gl_FragColor = vec4(vColor, a * vAlpha * 0.6);
+  }
+</script>
+<script>
+(function () {
+  'use strict';
+
+  var TAU = Math.PI * 2;
+  var reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  var stage = document.getElementById('stage');
+  var form = document.getElementById('bar');
+  var input = document.getElementById('word');
+  var statusEl = document.getElementById('status');
+  var fallback = document.getElementById('fallback');
+  var dock = document.getElementById('dock');
+
+  var IDLE_MSG = 'یه اسم، عدد یا کلمه بنویس. موس یا انگشتت رو روی ذره‌ها بکش تا کنار برن.';
+
+  function fail(msg) { fallback.textContent = msg; fallback.hidden = false; }
+  function setStatus(msg) { statusEl.textContent = msg; }
+
+  if (typeof THREE === 'undefined' || typeof gsap === 'undefined') {
+    fail('کتابخانه‌ی سه‌بعدی بارگذاری نشد. صفحه رو دوباره باز کن.');
+    return;
+  }
+
+  /* ---------- tunables ---------- */
+  var small = Math.min(window.innerWidth, window.innerHeight) < 700;
+  var N = small ? 32000 : 80000;
+  var R = 2;
+  var HOLD = 6500;
+  var SIZE = small ? 0.034 : 0.022;
+  var PALETTES = [
+    ['#6f5bff', '#38d5ff'],
+    ['#ff6ad5', '#7a6cff'],
+    ['#ffb86b', '#ff5d8f'],
+    ['#5cffb1', '#38b6ff']
+  ];
+
+  /* ---------- renderer / scene ---------- */
+  var renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+  } catch (e) {
+    fail('این مرورگر WebGL رو پشتیبانی نمی‌کنه.');
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, small ? 2 : 1.75));
+  renderer.setClearColor(new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#06050c'), 1);
+  stage.appendChild(renderer.domElement);
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  var group = new THREE.Group();
+  scene.add(group);
+
+  var camZ = 8;
+  function visibleSize() {
+    var vh = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camZ;
+    return { w: vh * camera.aspect, h: vh };
+  }
+
+  /* ---------- particle data ---------- */
+  var sphere = new Float32Array(N * 3);
+  var text = new Float32Array(N * 3);
+  var rnd = new Float32Array(N * 4);
+  var col = new Float32Array(N * 3);
+  var order = new Uint32Array(N);
+
+  var cA = new THREE.Color('#5a4bf0');
+  var cB = new THREE.Color('#b3a6ff');
+  var tmp = new THREE.Color();
+
+  for (var i = 0; i < N; i++) {
+    order[i] = i;
+    var shell = Math.random() < 0.86;
+    var u = Math.random() * 2 - 1;
+    var th = Math.random() * TAU;
+    var s = Math.sqrt(1 - u * u);
+    var r = shell ? R * (0.94 + Math.random() * 0.06) : R * 0.9 * Math.cbrt(Math.random());
+    var k = i * 3;
+    sphere[k] = r * s * Math.cos(th);
+    sphere[k + 1] = r * u;
+    sphere[k + 2] = r * s * Math.sin(th);
+
+    rnd[i * 4] = Math.random();
+    rnd[i * 4 + 1] = Math.random();
+    rnd[i * 4 + 2] = Math.random();
+    rnd[i * 4 + 3] = Math.random();
+
+    tmp.copy(cA).lerp(cB, Math.pow(Math.random(), 1.6));
+    var dim = shell ? 1 : 0.55;
+    col[k] = tmp.r * dim;
+    col[k + 1] = tmp.g * dim;
+    col[k + 2] = tmp.b * dim;
+  }
+  for (var j = N - 1; j > 0; j--) {
+    var q = (Math.random() * (j + 1)) | 0;
+    var sw = order[j]; order[j] = order[q]; order[q] = sw;
+  }
+  text.set(sphere);
+
+  var geometry = new THREE.BufferGeometry();
+  var textAttr = new THREE.BufferAttribute(text, 3);
+  textAttr.setUsage(THREE.DynamicDrawUsage);
+  geometry.setAttribute('position', new THREE.BufferAttribute(sphere, 3));
+  geometry.setAttribute('aText', textAttr);
+  geometry.setAttribute('aRand', new THREE.BufferAttribute(rnd, 4));
+  geometry.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+
+  var uniforms = {
+    uMix: { value: 0 },
+    uTime: { value: 0 },
+    uSize: { value: SIZE },
+    uTextSize: { value: 0.8 },
+    uViewH: { value: 1 },
+    uSpread: { value: 0.5 },
+    uSwirl: { value: reduce ? 0 : 1 },
+    uCamZ: { value: camZ },
+    uTextHalfW: { value: 4 },
+    uOpacity: { value: 0 },
+    uPointerPow: { value: 0 },
+    uPointerR: { value: small ? 1.1 : 0.9 },
+    uRayO: { value: new THREE.Vector3() },
+    uRayD: { value: new THREE.Vector3(0, 0, -1) },
+    uC1: { value: new THREE.Color(PALETTES[0][0]) },
+    uC2: { value: new THREE.Color(PALETTES[0][1]) }
+  };
+
+  var material = new THREE.ShaderMaterial({
+    uniforms: uniforms,
+    vertexShader: document.getElementById('vs').textContent,
+    fragmentShader: document.getElementById('fs').textContent,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    blending: THREE.AdditiveBlending
+  });
+
+  var points = new THREE.Points(geometry, material);
+  points.frustumCulled = false;
+  group.add(points);
+
+  function resize() {
+    var w = stage.clientWidth || window.innerWidth;
+    var h = stage.clientHeight || window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camZ = Math.max(7, 5.6 / camera.aspect);
+    camera.position.z = camZ;
+    camera.updateProjectionMatrix();
+    uniforms.uCamZ.value = camZ;
+    uniforms.uViewH.value = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+    group.position.y = visibleSize().h * 0.07;
+    if (current && mode === 'text') buildTargets(current);
+  }
+
+  /* ---------- text / shape -> target points ---------- */
+  var CW = 1600, CH = 560, STEP = 2;
+  var tc = document.createElement('canvas');
+  tc.width = CW;
+  tc.height = CH;
+  var tx = tc.getContext('2d', { willReadFrequently: true });
+  var FONT = '800 {S}px Poppins, Vazirmatn, "Segoe UI", sans-serif';
+  var scratch = new Int32Array((CW / STEP) * (CH / STEP) * 2);
+
+  function splitLines(t) {
+    if (t.length <= 12 || t.indexOf(' ') < 0) return [t];
+    var mid = t.length / 2, best = -1, bd = 1e9;
+    for (var i = 0; i < t.length; i++) {
+      if (t.charAt(i) === ' ' && Math.abs(i - mid) < bd) { bd = Math.abs(i - mid); best = i; }
+    }
+    return [t.slice(0, best).trim(), t.slice(best + 1).trim()];
+  }
+
+  function drawHeart(cx, cy, s) {
+    tx.beginPath();
+    tx.moveTo(cx, cy + s * 0.95);
+    tx.bezierCurveTo(cx + s * 1.7, cy - s * 0.1, cx + s * 1.0, cy - s * 1.2, cx, cy - s * 0.4);
+    tx.bezierCurveTo(cx - s * 1.0, cy - s * 1.2, cx - s * 1.7, cy - s * 0.1, cx, cy + s * 0.95);
+    tx.fill();
+  }
+
+  function buildTargets(spec) {
+    tx.clearRect(0, 0, CW, CH);
+    tx.fillStyle = '#fff';
+    tx.textAlign = 'center';
+    tx.textBaseline = 'middle';
+
+    if (spec.kind === 'heart') {
+      drawHeart(CW / 2, CH / 2, 190);
+    } else {
+      var lines = splitLines(spec.value);
+      var size = lines.length > 1 ? 230 : 340;
+      tx.font = FONT.replace('{S}', size);
+      var widest = 0;
+      for (var a = 0; a < lines.length; a++) widest = Math.max(widest, tx.measureText(lines[a]).width);
+      if (widest > CW * 0.94) {
+        size = Math.max(20, Math.floor(size * (CW * 0.94) / widest));
+        tx.font = FONT.replace('{S}', size);
+      }
+      var lh = size * 1.08;
+      var y0 = CH / 2 - lh * (lines.length - 1) / 2;
+      for (var b = 0; b < lines.length; b++) tx.fillText(lines[b], CW / 2, y0 + b * lh);
+    }
+
+    var data = tx.getImageData(0, 0, CW, CH).data;
+    var count = 0, minX = 1e9, maxX = -1, minY = 1e9, maxY = -1;
+    for (var y = 0; y < CH; y += STEP) {
+      for (var x = 0; x < CW; x += STEP) {
+        if (data[(y * CW + x) * 4 + 3] > 128) {
+          scratch[count * 2] = x;
+          scratch[count * 2 + 1] = y;
+          count++;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (!count) return false;
+
+    var vis = visibleSize();
+    var bw = maxX - minX + STEP;
+    var bh = maxY - minY + STEP;
+    var scale = Math.min(Math.min(vis.w * 0.84, 8) / bw, (vis.h * 0.42) / bh);
+    var cx = (minX + maxX) / 2;
+    var cy = (minY + maxY) / 2;
+    uniforms.uTextHalfW.value = Math.max(0.5, bw * scale / 2);
+
+    // stratified pick so every part of the letters gets a fair share of particles
+    for (var i = 0; i < N; i++) {
+      var p = Math.min(count - 1, Math.floor(((order[i] + Math.random()) / N) * count));
+      var px = scratch[p * 2] + (Math.random() - 0.5) * STEP;
+      var py = scratch[p * 2 + 1] + (Math.random() - 0.5) * STEP;
+      var k = i * 3;
+      text[k] = (px - cx) * scale;
+      text[k + 1] = -(py - cy) * scale;
+      text[k + 2] = (Math.random() - 0.5) * 0.25;
+    }
+    textAttr.needsUpdate = true;
+    return true;
+  }
+
+  /* ---------- state machine ---------- */
+  var mixTween = null;
+  var holdTimer = null;
+  var mode = 'sphere';
+  var textRotY = 0;
+  var run = 0;
+  var paletteIdx = 0;
+  var current = null;
+
+  function setMix(to, dur, done) {
+    if (mixTween) mixTween.kill();
+    mixTween = gsap.to(uniforms.uMix, {
+      value: to,
+      duration: reduce ? Math.min(dur, 0.6) : dur,
+      ease: 'none',
+      onComplete: done
+    });
+  }
+
+  function toSphere() {
+    clearTimeout(holdTimer);
+    run++;
+    mode = 'sphere';
+    current = null;
+    setMix(0, 2.4, function () { setStatus(IDLE_MSG); });
+  }
+
+  function nudge() {
+    form.classList.remove('nudge');
+    void form.offsetWidth;
+    form.classList.add('nudge');
+    input.focus();
+  }
+
+  async function create(raw) {
+    var value = (raw || '').replace(/\s+/g, ' ').trim();
+    if (!value) { nudge(); return; }
+
+    var my = ++run;
+    clearTimeout(holdTimer);
+    setStatus('در حال ساختن «' + value + '»…');
+
+    try {
+      if (document.fonts && document.fonts.load) {
+        await Promise.all([
+          document.fonts.load('800 120px Poppins', value),
+          document.fonts.load('800 120px Vazirmatn', value)
+        ]);
+      }
+    } catch (e) { /* use whatever font is available */ }
+    if (my !== run) return;
+
+    var spec = value === '♥' ? { kind: 'heart' } : { kind: 'text', value: value };
+    if (!buildTargets(spec)) {
+      setStatus('از این نوشته شکلی درنیومد. یه چیز دیگه امتحان کن.');
+      return;
+    }
+    current = spec;
+    mode = 'text';
+    textRotY = Math.round(group.rotation.y / TAU) * TAU;
+
+    var pal = PALETTES[paletteIdx++ % PALETTES.length];
+    var c1 = new THREE.Color(pal[0]);
+    var c2 = new THREE.Color(pal[1]);
+    gsap.to(uniforms.uC1.value, { r: c1.r, g: c1.g, b: c1.b, duration: 0.8 });
+    gsap.to(uniforms.uC2.value, { r: c2.r, g: c2.g, b: c2.b, duration: 0.8 });
+
+    setMix(1, 2.8, function () {
+      setStatus('ساخته شد. چند ثانیه‌ی دیگه به کره برمی‌گرده. ذره‌ها رو با موس یا انگشت کنار بزن.');
+      holdTimer = setTimeout(toSphere, HOLD);
+    });
+  }
+
+  /* ---------- input ---------- */
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    create(input.value);
+    if (small) input.blur();
+  });
+  input.addEventListener('focus', function () { input.select(); });
+
+  document.querySelectorAll('.chip[data-word]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      input.value = chip.getAttribute('data-word');
+      create(input.value);
+    });
+  });
+  document.getElementById('sphereBtn').addEventListener('click', toSphere);
+
+  /* ---------- pointer ---------- */
+  var ndc = new THREE.Vector2();
+  var caster = new THREE.Raycaster();
+  var pointerIn = false;
+
+  window.addEventListener('pointermove', function (ev) {
+    ndc.set((ev.clientX / window.innerWidth) * 2 - 1, -(ev.clientY / window.innerHeight) * 2 + 1);
+    pointerIn = !(ev.target && ev.target.closest && ev.target.closest('.dock'));
+  });
+  window.addEventListener('pointerdown', function (ev) {
+    ndc.set((ev.clientX / window.innerWidth) * 2 - 1, -(ev.clientY / window.innerHeight) * 2 + 1);
+    pointerIn = !(ev.target && ev.target.closest && ev.target.closest('.dock'));
+  });
+  window.addEventListener('pointerup', function (ev) { if (ev.pointerType !== 'mouse') pointerIn = false; });
+  window.addEventListener('pointercancel', function () { pointerIn = false; });
+  document.addEventListener('mouseleave', function () { pointerIn = false; });
+  window.addEventListener('resize', resize);
+
+  /* ---------- intro: type a greeting once, unless the visitor acts first ---------- */
+  var touched = false;
+  ['pointerdown', 'keydown'].forEach(function (name) {
+    window.addEventListener(name, function () { touched = true; }, { once: true });
+  });
+  setTimeout(function () {
+    if (touched) return;
+    var word = 'Hello', n = 0;
+    var iv = setInterval(function () {
+      if (touched) { clearInterval(iv); return; }
+      n++;
+      input.value = word.slice(0, n);
+      if (n === word.length) {
+        clearInterval(iv);
+        setTimeout(function () { if (!touched) create(word); }, 350);
+      }
+    }, 140);
+  }, 1500);
+
+  /* ---------- loop ---------- */
+  var clock = new THREE.Clock();
+  var cx0 = 0, cy0 = 0;
+
+  function frame() {
+    requestAnimationFrame(frame);
+    var dt = Math.min(clock.getDelta(), 0.05);
+    var k = Math.min(1, dt * 3);
+    uniforms.uTime.value += dt;
+
+    var m = uniforms.uMix.value;
+    if (mode === 'text') {
+      group.rotation.y += (textRotY - group.rotation.y) * k;
+      group.rotation.x += (0 - group.rotation.x) * k;
+    } else {
+      group.rotation.y += dt * 0.24 * (1 - Math.min(1, m * 3)) * (reduce ? 0.3 : 1);
+      group.rotation.x += (0.2 - group.rotation.x) * Math.min(1, dt * 2);
+    }
+
+    // soft camera parallax toward the pointer
+    var tx0 = ndc.x * 0.45, ty0 = ndc.y * 0.28;
+    cx0 += (tx0 - cx0) * Math.min(1, dt * 2);
+    cy0 += (ty0 - cy0) * Math.min(1, dt * 2);
+    camera.position.x = cx0;
+    camera.position.y = cy0;
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
+
+    caster.setFromCamera(ndc, camera);
+    uniforms.uRayO.value.copy(caster.ray.origin);
+    uniforms.uRayD.value.copy(caster.ray.direction);
+    uniforms.uPointerPow.value += ((pointerIn ? 1 : 0) - uniforms.uPointerPow.value) * Math.min(1, dt * 6);
+
+    renderer.render(scene, camera);
+  }
+
+  resize();
+  gsap.to(uniforms.uOpacity, { value: 1, duration: 1.6 });
+  frame();
+})();
+</script>
+
+</body></html>
