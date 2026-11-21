@@ -1,4 +1,4 @@
-# ✨ Particle-Morph
+# ✨ Particle Morph
 
 **Turn words into particles. Turn particles into art.**
 
