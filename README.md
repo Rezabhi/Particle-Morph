@@ -34,7 +34,7 @@ Explore a dynamic particle universe where creativity meets technology.
 ### 1. Clone the repository
 
 ```bash
-[git clone https://github.com/Rezabhi/particle-morph.git](https://github.com/Rezabhi/Particle-Morph.git)
+https://github.com/Rezabhi/Particle-Morph.git
 ```
 
 ### 2. Open the project
